@@ -1,0 +1,9 @@
+{% props title = null %}
+<section {{ attributes.defaults({class: 'rounded-xl border border-gray-200 bg-white shadow-sm'}) }}>
+    {% if title %}
+        <header class="border-b border-gray-100 px-4 py-3">
+            <h2 class="text-sm font-semibold text-gray-900">{{ title }}</h2>
+        </header>
+    {% endif %}
+    <div class="p-4">{% block content %}{% endblock %}</div>
+</section>

@@ -1,0 +1,8 @@
+{% props variant = 'neutral' %}
+{% set colors = {
+    success: 'bg-emerald-50 text-emerald-700',
+    warning: 'bg-amber-50 text-amber-700',
+    danger: 'bg-rose-50 text-rose-700',
+    neutral: 'bg-gray-100 text-gray-700',
+} %}
+<span {{ attributes.defaults({class: 'inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ' ~ colors[variant]}) }}>{% block content %}{% endblock %}</span>

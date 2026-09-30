@@ -1,0 +1,59 @@
+{% extends 'dashboard/layout.html.twig' %}
+
+{% block title %}{{ domain.id ? 'Modifier le domaine' : 'Nouveau domaine' }}{% endblock %}
+{% block page_title %}{{ domain.id ? 'Modifier « ' ~ domain.name ~ ' »' : 'Nouveau domaine' }}{% endblock %}
+
+{% block content %}
+    {% set prototype_row = include('admin/domain/_kpi_row.html.twig', {f: form.kpis.vars.prototype, removable: true}) %}
+    {{ form_start(form, {attr: {class: 'space-y-6', novalidate: 'novalidate'}}) }}
+        <twig:Dashboard:Card title="Menu">
+            <div class="space-y-4">
+                {{ form_errors(form) }}
+                <div class="grid gap-4 sm:grid-cols-2">
+                    {{ form_row(form.name) }}
+                    {{ form_row(form.slug) }}
+                    {{ form_row(form.position) }}
+                    <div class="flex items-end">{{ form_row(form.active) }}</div>
+                </div>
+
+                <fieldset class="space-y-2">
+                    <legend class="text-sm font-medium text-gray-700">Icône</legend>
+                    <div class="grid max-h-56 grid-cols-6 gap-2 overflow-y-auto rounded-lg border border-gray-100 p-2 sm:grid-cols-10">
+                        {% for child in form.icon %}
+                            <label class="cursor-pointer" title="{{ child.vars.value }}">
+                                {{ form_widget(child, {attr: {class: 'peer sr-only'}}) }}
+                                <span class="flex size-10 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:text-indigo-600 peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-300">
+                                    <twig:ux:icon :name="child.vars.value" class="size-5" />
+                                    <span class="sr-only">{{ child.vars.value }}</span>
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                    {% do form.icon.setRendered %}
+                    {{ form_errors(form.icon) }}
+                </fieldset>
+            </div>
+        </twig:Dashboard:Card>
+
+        <twig:Dashboard:Card title="KPI">
+            <div data-controller="collection"
+                 data-collection-index-value="{{ form.kpis|length }}"
+                 data-collection-prototype-value="{{ prototype_row|e('html_attr') }}"
+                 class="space-y-3">
+                <div data-collection-target="list" class="space-y-3">
+                    {% for f in form.kpis %}{{ include('admin/domain/_kpi_row.html.twig', {f: f, removable: false}) }}{% endfor %}
+                </div>
+                {% do form.kpis.setRendered %}
+                <button type="button" data-action="collection#add" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    <twig:ux:icon name="lucide:plus" class="size-4" /> Ajouter un KPI
+                </button>
+            </div>
+            <p class="mt-3 text-xs text-gray-500">Modifier l'objectif par défaut n'affecte pas les évaluations déjà saisies.</p>
+        </twig:Dashboard:Card>
+
+        <div class="flex gap-3">
+            <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Enregistrer</button>
+            <a href="{{ path('app_admin_domain_index') }}" class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Annuler</a>
+        </div>
+    {{ form_end(form) }}
+{% endblock %}

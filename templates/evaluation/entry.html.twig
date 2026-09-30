@@ -1,0 +1,74 @@
+{% extends 'dashboard/layout.html.twig' %}
+
+{% block title %}Saisie — {{ domain.name }}{% endblock %}
+{% block page_title %}Saisie hebdomadaire · {{ domain.name }}{% endblock %}
+
+{% block page_actions %}
+    {{ include('partials/_week_nav.html.twig', {route: 'app_evaluation_entry', params: {slug: domain.slug}}) }}
+{% endblock %}
+
+{% block content %}
+    {{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
+        <twig:Dashboard:Card>
+            {{ form_errors(form) }}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-xs uppercase text-gray-500">
+                        <tr>
+                            <th class="pb-3 pr-4">KPI</th>
+                            <th class="pb-3 pr-4">Objectif</th>
+                            <th class="pb-3 pr-4">Score</th>
+                            <th class="pb-3 pr-4">Commentaire</th>
+                            <th class="pb-3">Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for row in form.evaluations %}
+                            {% set evaluation = row.vars.data %}
+                            {% set sub = evaluation.kpi %}
+                            <tr class="align-top">
+                                <td class="py-3 pr-4">
+                                    <p class="font-medium">{{ sub.code }}</p>
+                                    <p class="text-xs text-gray-500">{{ sub.name }}</p>
+                                </td>
+                                <td class="w-36 py-3 pr-4">
+                                    {% if row.target is defined %}
+                                        {{ form_widget(row.target) }}{{ form_errors(row.target) }}
+                                    {% else %}
+                                        {{ evaluation.lowerIsBetter ? '≤ ' : '' }}{{ evaluation.target|number_format(0, ',', ' ') }}{{ sub.unit ? ' ' ~ sub.unit : '' }}
+                                    {% endif %}
+                                </td>
+                                <td class="w-36 py-3 pr-4">
+                                    {{ form_widget(row.score, {attr: {'aria-label': 'Score ' ~ sub.code}}) }}{{ form_errors(row.score) }}
+                                </td>
+                                <td class="py-3 pr-4">
+                                    {{ form_widget(row.comment, {attr: {'aria-label': 'Commentaire ' ~ sub.code}}) }}
+                                    {% if evaluation.rejectionReason %}
+                                        <p class="mt-1 text-xs text-rose-600">Retour en brouillon : {{ evaluation.rejectionReason }}</p>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3">
+                                    <twig:Dashboard:Badge :variant="evaluation.status.value == 'validated' ? 'success' : (evaluation.status.value == 'submitted' ? 'warning' : 'neutral')">{{ evaluation.status.label }}</twig:Dashboard:Badge>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="5" class="py-6 text-center text-gray-500">Aucun KPI actif dans ce domaine.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </twig:Dashboard:Card>
+
+        <div class="mt-6 flex flex-wrap items-center gap-3">
+            <button type="submit" name="{{ form.save.vars.full_name }}" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <twig:ux:icon name="lucide:save" class="size-4" /> Enregistrer le brouillon
+            </button>
+            <button type="submit" name="{{ form.submit.vars.full_name }}" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+                <twig:ux:icon name="lucide:send" class="size-4" /> Soumettre
+            </button>
+            <p class="text-xs text-gray-500">Une évaluation soumise est verrouillée jusqu'à sa validation.</p>
+        </div>
+        {% do form.save.setRendered %}
+        {% do form.submit.setRendered %}
+    {{ form_end(form) }}
+{% endblock %}

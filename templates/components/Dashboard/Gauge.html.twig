@@ -1,0 +1,28 @@
+{% set hasValue = this.value is not null %}
+<div {{ attributes.defaults({class: 'flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm'}) }}>
+    <p class="flex items-center justify-center gap-2 text-base font-medium text-gray-600">
+        <span class="flex size-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+            <twig:ux:icon :name="this.icon" class="size-5" />
+        </span>
+        {{ this.label }}
+    </p>
+
+    <svg viewBox="4 4 92 84" class="mx-auto mt-2 w-full max-w-44" role="img"
+         aria-label="{{ this.label }} : {{ hasValue ? this.value|round(1) ~ ' ' ~ this.unit : 'aucune donnée' }}">
+        <title>{{ this.label }}</title>
+        <path d="{{ this.trackPath }}" fill="none" class="stroke-gray-200" stroke-width="8" stroke-linecap="round" />
+        {% if this.progressPath %}
+            <path d="{{ this.progressPath }}" fill="none" class="stroke-indigo-500" stroke-width="8" stroke-linecap="round" />
+        {% endif %}
+        <text x="50" y="57" text-anchor="middle" class="fill-slate-700" font-size="20" font-weight="600">{{ hasValue ? this.value|round(1) ~ '%' : '—' }}</text>
+    </svg>
+
+    {% if this.trend is not null %}
+        <p class="mt-1 flex items-center justify-center gap-1 text-sm {{ this.trend >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">
+            <twig:ux:icon :name="this.trend >= 0 ? 'lucide:trending-up' : 'lucide:trending-down'" class="size-4" />
+            {{ this.trend > 0 ? '+' : '' }}{{ this.trend }} {{ this.trendLabel }}
+        </p>
+    {% elseif not hasValue %}
+        <p class="mt-1 text-center text-sm text-gray-500">Aucune donnée comparable</p>
+    {% endif %}
+</div>

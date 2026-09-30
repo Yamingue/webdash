@@ -1,0 +1,23 @@
+<div data-collection-item class="space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+    <div class="grid items-end gap-3 sm:grid-cols-12">
+        <div class="sm:col-span-2">{{ form_row(f.code) }}</div>
+        <div class="sm:col-span-4">{{ form_row(f.name) }}</div>
+        <div class="sm:col-span-2">{{ form_row(f.defaultTarget) }}</div>
+        <div class="sm:col-span-2">{{ form_row(f.weight) }}</div>
+        <div class="sm:col-span-1">{{ form_row(f.unit) }}</div>
+        <div class="sm:col-span-1">{{ form_row(f.position) }}</div>
+    </div>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
+            {{ form_widget(f.lowerIsBetter) }}
+            {{ form_widget(f.active) }}
+            {{ form_help(f.lowerIsBetter) }}
+        </div>
+        {% if removable %}
+            <button type="button" data-action="collection#remove" class="rounded-lg p-2 text-rose-600 hover:bg-rose-50" aria-label="Retirer le KPI">
+                <twig:ux:icon name="lucide:trash-2" class="size-4" />
+            </button>
+        {% endif %}
+    </div>
+    {{ form_errors(f) }}
+</div>

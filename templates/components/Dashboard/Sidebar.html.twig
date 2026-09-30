@@ -1,0 +1,61 @@
+{% set route = app.request.attributes.get('_route') %}
+{% set slug = app.request.attributes.get('slug') %}
+{% set link = 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ' %}
+{% set on = 'bg-indigo-50 text-indigo-700' %}
+{% set off = 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' %}
+<aside data-sidebar-target="panel" class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-gray-200 bg-white transition-transform lg:translate-x-0">
+    <div class="flex h-16 shrink-0 items-center gap-2 px-6 text-lg font-bold text-indigo-600">
+        <twig:ux:icon name="lucide:layout-dashboard" class="size-6" /> WebDash
+    </div>
+    <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Navigation principale">
+        <a href="{{ path('app_dashboard') }}" class="{{ link }}{{ route == 'app_dashboard' ? on : off }}">
+            <twig:ux:icon name="lucide:layout-dashboard" class="size-5" /> Tableau de bord
+        </a>
+
+        <a href="{{ path('app_report_index') }}" class="{{ link }}{{ route starts with 'app_report' ? on : off }}">
+            <twig:ux:icon name="lucide:file-text" class="size-5" /> Rapports
+        </a>
+
+        {% if this.canViewJournal %}
+            <a href="{{ path('app_audit_index') }}" class="{{ link }}{{ route starts with 'app_audit' ? on : off }}">
+                <twig:ux:icon name="lucide:shield-check" class="size-5" /> Journal
+            </a>
+        {% endif %}
+
+        {% set menu = this.menu %}
+        {% if menu is not empty %}
+            <p class="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-gray-400">Domaines</p>
+            {% for item in menu %}
+                {% set current = slug == item.domain.slug %}
+                <div class="flex items-center gap-1 rounded-lg {{ current ? on : off }}">
+                    <a href="{{ path('app_domain_show', {slug: item.domain.slug}) }}" class="flex flex-1 items-center gap-3 px-3 py-2 text-sm font-medium">
+                        <twig:ux:icon :name="item.domain.icon" class="size-5" /> {{ item.domain.name }}
+                    </a>
+                    {% if item.canEvaluate %}
+                        <a href="{{ path('app_evaluation_entry', {slug: item.domain.slug}) }}" class="mr-1 rounded-md p-1.5 hover:bg-white/60" title="Saisie hebdomadaire" aria-label="Saisie hebdomadaire {{ item.domain.name }}">
+                            <twig:ux:icon name="lucide:pencil-line" class="size-4" />
+                        </a>
+                    {% endif %}
+                    {% if item.canManage %}
+                        <a href="{{ path('app_validation_index', {slug: item.domain.slug}) }}" class="relative mr-1 rounded-md p-1.5 hover:bg-white/60" title="Validation ({{ item.pending }} en attente)" aria-label="Validation {{ item.domain.name }}, {{ item.pending }} en attente">
+                            <twig:ux:icon name="lucide:circle-check" class="size-4" />
+                            {% if item.pending > 0 %}
+                                <span class="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-4 text-white">{{ item.pending }}</span>
+                            {% endif %}
+                        </a>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% if is_granted('ROLE_ADMIN') %}
+            <p class="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-gray-400">Administration</p>
+            <a href="{{ path('app_admin_domain_index') }}" class="{{ link }}{{ route starts with 'app_admin_domain' ? on : off }}">
+                <twig:ux:icon name="lucide:layers" class="size-5" /> Domaines
+            </a>
+            <a href="{{ path('app_admin_user_index') }}" class="{{ link }}{{ route starts with 'app_admin_user' ? on : off }}">
+                <twig:ux:icon name="lucide:users" class="size-5" /> Utilisateurs
+            </a>
+        {% endif %}
+    </nav>
+</aside>

@@ -1,0 +1,10 @@
+<div data-collection-item class="grid items-end gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3 sm:grid-cols-12">
+    <div class="sm:col-span-5">{{ form_row(f.domain) }}</div>
+    <div class="sm:col-span-5">{{ form_row(f.role) }}</div>
+    <div class="flex justify-end sm:col-span-2">
+        <button type="button" data-action="collection#remove" class="rounded-lg p-2 text-rose-600 hover:bg-rose-50" aria-label="Retirer le rattachement">
+            <twig:ux:icon name="lucide:trash-2" class="size-4" />
+        </button>
+    </div>
+    {{ form_errors(f) }}
+</div>

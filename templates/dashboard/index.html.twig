@@ -1,0 +1,50 @@
+{% extends 'dashboard/layout.html.twig' %}
+
+{% block title %}Tableau de bord{% endblock %}
+{% block page_title %}Tableau de bord{% endblock %}
+
+{% block page_actions %}
+    {{ include('partials/_week_nav.html.twig', {route: 'app_dashboard', params: {}}) }}
+{% endblock %}
+
+{% block content %}
+    {% if summaries is empty %}
+        <twig:Dashboard:Card>
+            <p class="flex items-center gap-2 py-6 text-sm text-gray-500">
+                <twig:ux:icon name="lucide:inbox" class="size-5" /> Aucun domaine accessible. Contactez un administrateur pour être rattaché à un domaine.
+            </p>
+        </twig:Dashboard:Card>
+    {% else %}
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <twig:Dashboard:Gauge label="Atteinte globale" :value="overall" :trend="overallTrend" class="justify-center" />
+            <twig:Dashboard:StatCard label="KPI évalués" :value="evaluated ~ ' / ' ~ total" icon="lucide:bar-chart-3" hint="Soumis ou validés cette semaine" />
+            <twig:Dashboard:StatCard label="KPI à l'objectif" :value="atTarget" icon="lucide:circle-check" hint="Atteinte ≥ 100 %" />
+            <twig:Dashboard:StatCard label="KPI sans saisie" :value="total - evaluated" icon="lucide:circle-alert" hint="À renseigner ou à soumettre" />
+        </div>
+
+        <section aria-labelledby="domain-scores-title" class="space-y-3">
+            <h2 id="domain-scores-title" class="text-sm font-semibold text-gray-900">
+                Score par domaine <span class="font-normal text-gray-500">(moyenne pondérée des KPI saisis)</span>
+            </h2>
+            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {% for summary in summaries %}
+                    <a href="{{ path('app_domain_show', {slug: summary.domain.slug}) }}" class="block rounded-xl transition hover:shadow-md focus-visible:outline-2 focus-visible:outline-indigo-500">
+                        <twig:Dashboard:Gauge :label="summary.domain.name" :icon="summary.domain.icon" :value="summary.average" :trend="summary.trend" class="h-full" />
+                    </a>
+                {% endfor %}
+            </div>
+        </section>
+
+        {% if chart %}
+            <twig:Dashboard:Card title="Évolution du taux d'atteinte (8 dernières semaines)">
+                <div class="relative h-56">
+                    {{ render_chart(chart) }}
+                </div>
+            </twig:Dashboard:Card>
+        {% endif %}
+
+        <div class="grid gap-4 xl:grid-cols-2">
+            {% for summary in summaries %}{{ include('dashboard/_domain_card.html.twig', {summary: summary}) }}{% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

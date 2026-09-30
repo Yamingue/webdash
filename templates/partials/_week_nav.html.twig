@@ -1,0 +1,23 @@
+{#
+  Sélecteur de semaine partagé. Variables attendues : route, params (paramètres de route sans "week"),
+  week, previousWeek, nextWeek, currentWeek (DateTimeImmutable, lundis).
+#}
+<nav class="flex flex-wrap items-center gap-2" aria-label="Semaine">
+    <a href="{{ path(route, params|merge({week: previousWeek|date('Y-m-d')})) }}" class="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50" aria-label="Semaine précédente">
+        <twig:ux:icon name="lucide:chevron-left" class="size-4" />
+    </a>
+    <form method="get" action="{{ path(route, params) }}" class="flex items-center gap-2">
+        <label for="week-picker" class="sr-only">Choisir une date</label>
+        <input type="date" id="week-picker" name="week" value="{{ week|date('Y-m-d') }}"
+               onchange="this.form.requestSubmit()"
+               class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100">
+        <noscript><button type="submit" class="rounded-lg border border-gray-200 px-3 py-2 text-sm">OK</button></noscript>
+    </form>
+    <a href="{{ path(route, params|merge({week: nextWeek|date('Y-m-d')})) }}" class="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50" aria-label="Semaine suivante">
+        <twig:ux:icon name="lucide:chevron-right" class="size-4" />
+    </a>
+    {% if week != currentWeek %}
+        <a href="{{ path(route, params) }}" class="text-sm text-indigo-600 hover:underline">Semaine courante</a>
+    {% endif %}
+    <span class="w-full text-xs text-gray-500 sm:w-auto">Semaine du {{ week|date('d/m/Y') }} au {{ week.modify('+6 days')|date('d/m/Y') }}</span>
+</nav>

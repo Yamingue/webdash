@@ -1,0 +1,130 @@
+{% extends 'dashboard/layout.html.twig' %}
+
+{% block title %}Validation — {{ domain.name }}{% endblock %}
+{% block page_title %}Validation · {{ domain.name }}{% endblock %}
+
+{% block page_actions %}
+    {% if evaluations is not empty %}
+        <form method="post" action="{{ path('app_validation_validate_all', {slug: domain.slug}) }}" onsubmit="return confirm('Valider toutes les évaluations soumises ?')">
+            <input type="hidden" name="_token" value="{{ csrf_token('validate_all_' ~ domain.slug) }}">
+            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+                <twig:ux:icon name="lucide:circle-check" class="size-4" /> Tout valider ({{ evaluations|length }})
+            </button>
+        </form>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    <twig:Dashboard:Card title="Évaluations soumises en attente">
+        {% if evaluations is empty %}
+            <p class="flex items-center gap-2 py-6 text-sm text-gray-500"><twig:ux:icon name="lucide:inbox" class="size-5" /> Aucune évaluation en attente de validation.</p>
+        {% else %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-xs uppercase text-gray-500">
+                        <tr>
+                            <th class="pb-3 pr-4">Semaine</th>
+                            <th class="pb-3 pr-4">KPI</th>
+                            <th class="pb-3 pr-4">Score / objectif</th>
+                            <th class="pb-3 pr-4">Atteinte</th>
+                            <th class="pb-3 pr-4">Commentaire</th>
+                            <th class="pb-3 pr-4">Saisi par</th>
+                            <th class="pb-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for evaluation in evaluations %}
+                            {% set rate = evaluation.achievement %}
+                            <tr class="align-top">
+                                <td class="py-3 pr-4 whitespace-nowrap">{{ evaluation.weekStart|date('d/m/Y') }}</td>
+                                <td class="py-3 pr-4"><span class="font-medium">{{ evaluation.kpi.code }}</span><br><span class="text-xs text-gray-500">{{ evaluation.kpi.name }}</span></td>
+                                <td class="py-3 pr-4 whitespace-nowrap">{{ evaluation.score }} / {{ evaluation.target }}{{ evaluation.kpi.unit ? ' ' ~ evaluation.kpi.unit : '' }}</td>
+                                <td class="py-3 pr-4">
+                                    {% if rate is not null %}
+                                        <twig:Dashboard:Badge :variant="rate >= 100 ? 'success' : (rate >= 80 ? 'warning' : 'danger')">{{ rate|round }}%</twig:Dashboard:Badge>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td class="max-w-xs py-3 pr-4 text-gray-600">{{ evaluation.comment ?: '—' }}</td>
+                                <td class="py-3 pr-4 text-gray-600">{{ evaluation.createdBy ? evaluation.createdBy.fullName : '—' }}<br><span class="text-xs">{{ evaluation.submittedAt|date('d/m H:i') }}</span></td>
+                                <td class="py-3">
+                                    <div class="flex flex-col items-end gap-2">
+                                        <form method="post" action="{{ path('app_evaluation_validate', {id: evaluation.id}) }}">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('review_' ~ evaluation.id) }}">
+                                            <button type="submit" class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
+                                                <twig:ux:icon name="lucide:check" class="size-4" /> Valider
+                                            </button>
+                                        </form>
+                                        <details class="w-56">
+                                            <summary class="cursor-pointer text-right text-xs text-rose-600 hover:underline">Rejeter…</summary>
+                                            <form method="post" action="{{ path('app_evaluation_reject', {id: evaluation.id}) }}" class="mt-2 space-y-2">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('review_' ~ evaluation.id) }}">
+                                                <label class="sr-only" for="reason-{{ evaluation.id }}">Motif du rejet</label>
+                                                <textarea id="reason-{{ evaluation.id }}" name="reason" rows="2" required placeholder="Motif du rejet"
+                                                          class="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-100"></textarea>
+                                                <button type="submit" class="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700">
+                                                    <twig:ux:icon name="lucide:circle-x" class="size-4" /> Rejeter
+                                                </button>
+                                            </form>
+                                        </details>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </twig:Dashboard:Card>
+
+    <twig:Dashboard:Card title="Validées récemment">
+        {% if validated is empty %}
+            <p class="py-4 text-sm text-gray-500">Aucune évaluation validée pour le moment.</p>
+        {% else %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-xs uppercase text-gray-500">
+                        <tr>
+                            <th class="pb-3 pr-4">Semaine</th>
+                            <th class="pb-3 pr-4">KPI</th>
+                            <th class="pb-3 pr-4">Score / objectif</th>
+                            <th class="pb-3 pr-4">Atteinte</th>
+                            <th class="pb-3 pr-4">Validée par</th>
+                            <th class="pb-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for evaluation in validated %}
+                            {% set rate = evaluation.achievement %}
+                            <tr class="align-top">
+                                <td class="whitespace-nowrap py-3 pr-4">{{ evaluation.weekStart|date('d/m/Y') }}</td>
+                                <td class="py-3 pr-4"><span class="font-medium">{{ evaluation.kpi.code }}</span> <span class="text-gray-500">{{ evaluation.kpi.name }}</span></td>
+                                <td class="whitespace-nowrap py-3 pr-4">{{ evaluation.score }} / {{ evaluation.lowerIsBetter ? '≤ ' : '' }}{{ evaluation.target }}{{ evaluation.kpi.unit ? ' ' ~ evaluation.kpi.unit : '' }}</td>
+                                <td class="py-3 pr-4">
+                                    {% if rate is not null %}
+                                        <twig:Dashboard:Badge :variant="rate >= 100 ? 'success' : (rate >= 80 ? 'warning' : 'danger')">{{ rate|round }}%</twig:Dashboard:Badge>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td class="py-3 pr-4 text-gray-600">{{ evaluation.validatedBy ? evaluation.validatedBy.fullName : '—' }}<br><span class="text-xs">{{ evaluation.validatedAt ? evaluation.validatedAt|date('d/m H:i') : '' }}</span></td>
+                                <td class="py-3">
+                                    <details class="w-60">
+                                        <summary class="cursor-pointer text-right text-xs text-gray-600 hover:underline">Rouvrir…</summary>
+                                        <form method="post" action="{{ path('app_evaluation_reopen', {id: evaluation.id}) }}" class="mt-2 space-y-2">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('review_' ~ evaluation.id) }}">
+                                            <label class="sr-only" for="reopen-{{ evaluation.id }}">Motif du déverrouillage</label>
+                                            <textarea id="reopen-{{ evaluation.id }}" name="reason" rows="2" required placeholder="Motif du déverrouillage"
+                                                      class="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"></textarea>
+                                            <button type="submit" class="inline-flex items-center gap-1 rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-900">
+                                                <twig:ux:icon name="lucide:lock" class="size-4" /> Déverrouiller
+                                            </button>
+                                        </form>
+                                    </details>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="mt-3 text-xs text-gray-500">Déverrouiller renvoie l'évaluation en brouillon. Le motif est communiqué à l'évaluateur et enregistré dans le journal.</p>
+        {% endif %}
+    </twig:Dashboard:Card>
+{% endblock %}

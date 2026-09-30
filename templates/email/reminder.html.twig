@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+<body style="margin:0;padding:24px;background:#f9fafb;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
+    <h1 style="margin:0 0 4px;font-size:20px;color:#4f46e5;">WebDash</h1>
+    <p style="margin:0 0 16px;color:#6b7280;font-size:14px;">Semaine du {{ week|date('d/m/Y') }} au {{ week.modify('+6 days')|date('d/m/Y') }}</p>
+
+    <p style="margin:0 0 16px;font-size:15px;">Bonjour {{ reminder.user.fullName }},</p>
+
+    {% for item in reminder.domains %}
+        <div style="margin:0 0 20px;padding:16px;border:1px solid #e5e7eb;border-radius:8px;">
+            <h2 style="margin:0 0 8px;font-size:16px;">{{ item.domain.name }}</h2>
+
+            {% if item.missing is not empty %}
+                <p style="margin:0 0 6px;font-size:14px;">
+                    {{ item.missing|length }} KPI sans évaluation soumise :
+                </p>
+                <ul style="margin:0 0 12px;padding-left:20px;font-size:14px;color:#374151;">
+                    {% for kpi in item.missing|slice(0, 10) %}<li>{{ kpi.name }}</li>{% endfor %}
+                    {% if item.missing|length > 10 %}<li>… et {{ item.missing|length - 10 }} autre(s)</li>{% endif %}
+                </ul>
+                <a href="{{ url('app_evaluation_entry', {slug: item.domain.slug, week: week|date('Y-m-d')}) }}" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:14px;">Saisir les KPI</a>
+            {% endif %}
+
+            {% if item.pending %}
+                <p style="margin:12px 0 6px;font-size:14px;">
+                    <strong>{{ item.pending }}</strong> évaluation(s) en attente de votre validation.
+                </p>
+                <a href="{{ url('app_validation_index', {slug: item.domain.slug}) }}" style="display:inline-block;background:#d97706;color:#ffffff;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:14px;">Valider</a>
+            {% endif %}
+        </div>
+    {% endfor %}
+
+    <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">
+        Vous recevez ce rappel chaque semaine. Pour ne plus le recevoir, demandez à un administrateur de décocher « Recevoir les rappels » sur votre compte.
+    </p>
+</div>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{% extends 'dashboard/layout.html.twig' %}
+
+{% block title %}{{ user_entity.id ? 'Modifier l\'utilisateur' : 'Nouvel utilisateur' }}{% endblock %}
+{% block page_title %}{{ user_entity.id ? 'Modifier « ' ~ user_entity.fullName ~ ' »' : 'Nouvel utilisateur' }}{% endblock %}
+
+{% block content %}
+    {% set prototype_row = include('admin/user/_membership_row.html.twig', {f: form.memberships.vars.prototype}) %}
+    {{ form_start(form, {attr: {class: 'space-y-6', novalidate: 'novalidate'}}) }}
+        <twig:Dashboard:Card title="Compte">
+            {{ form_errors(form) }}
+            <div class="grid gap-4 sm:grid-cols-2">
+                {{ form_row(form.fullName) }}
+                {{ form_row(form.email) }}
+                {{ form_row(form.plainPassword) }}
+                {{ form_row(form.globalRole) }}
+            </div>
+            <div class="mt-4">{{ form_row(form.notifyByEmail) }}</div>
+        </twig:Dashboard:Card>
+
+        <twig:Dashboard:Card title="Catégories et rôles">
+            <div data-controller="collection"
+                 data-collection-index-value="{{ form.memberships|length }}"
+                 data-collection-prototype-value="{{ prototype_row|e('html_attr') }}"
+                 class="space-y-3">
+                {{ form_errors(form.memberships) }}
+                <div data-collection-target="list" class="space-y-3">
+                    {% for f in form.memberships %}{{ include('admin/user/_membership_row.html.twig', {f: f}) }}{% endfor %}
+                </div>
+                {% do form.memberships.setRendered %}
+                <button type="button" data-action="collection#add" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    <twig:ux:icon name="lucide:plus" class="size-4" /> Ajouter une catégorie
+                </button>
+            </div>
+            <p class="mt-3 text-xs text-gray-500">Responsable : saisit, ajuste les objectifs et valide. Évaluateur : saisit et soumet. Lecteur : consulte.</p>
+        </twig:Dashboard:Card>
+
+        <div class="flex gap-3">
+            <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Enregistrer</button>
+            <a href="{{ path('app_admin_user_index') }}" class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Annuler</a>
+        </div>
+    {{ form_end(form) }}
+{% endblock %}

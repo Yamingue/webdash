@@ -1,0 +1,15 @@
+{# Une ligne de KPI : nom, barre d'atteinte colorée, pourcentage (ou N/D sans saisie). Variables : line (KpiLine), showWeek (afficher la semaine de la saisie). #}
+{# Classes complètes : Tailwind ne détecte pas les noms construits dynamiquement. #}
+{% set bars = {good: 'bg-emerald-500', mid: 'bg-amber-500', bad: 'bg-rose-500'} %}
+{% set texts = {good: 'text-emerald-600', mid: 'text-amber-600', bad: 'text-rose-600'} %}
+{% set rate = line.achievement %}
+{% set tone = rate is null ? null : (rate >= 100 ? 'good' : (rate >= 80 ? 'mid' : 'bad')) %}
+{% set detail = line.kpi.code ~ (line.evaluation and rate is not null ? ' · ' ~ line.evaluation.score ~ ' / ' ~ (line.evaluation.lowerIsBetter ? '≤ ' : '') ~ line.evaluation.target ~ (line.kpi.unit ? ' ' ~ line.kpi.unit : '') ~ ' · poids ' ~ line.evaluation.weight : ' · pas de saisie') %}
+<li class="grid grid-cols-[minmax(0,1fr)_minmax(4rem,7rem)_3rem] items-center gap-3 text-sm" title="{{ detail }}">
+    <span class="truncate text-gray-800">{{ line.kpi.name }}{% if showWeek|default(false) %} <span class="text-xs text-gray-400">· sem. {{ line.evaluation.weekStart|date('d/m') }}</span>{% endif %}</span>
+    <div class="h-1.5 overflow-hidden rounded-full bg-gray-200"
+         {% if rate is not null %}role="progressbar" aria-label="Atteinte {{ line.kpi.name }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ min(rate, 100)|round }}"{% endif %}>
+        {% if rate is not null %}<div class="h-full rounded-full {{ bars[tone] }}" style="width: {{ min(rate, 100) }}%"></div>{% endif %}
+    </div>
+    <span class="text-right font-medium {{ tone ? texts[tone] : 'text-gray-400' }}">{{ rate is null ? 'N/D' : rate|round ~ '%' }}</span>
+</li>

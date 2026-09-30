@@ -1,0 +1,21 @@
+Bonjour {{ reminder.user.fullName }},
+
+Rappel WebDash — semaine du {{ week|date('d/m/Y') }} au {{ week.modify('+6 days')|date('d/m/Y') }}.
+{% for item in reminder.domains %}
+
+== {{ item.domain.name }} ==
+{% if item.missing is not empty -%}
+{{ item.missing|length }} KPI sans évaluation soumise :
+{% for kpi in item.missing|slice(0, 10) %}  - {{ kpi.name }}
+{% endfor -%}
+{% if item.missing|length > 10 %}  … et {{ item.missing|length - 10 }} autre(s)
+{% endif -%}
+Saisir : {{ url('app_evaluation_entry', {slug: item.domain.slug, week: week|date('Y-m-d')}) }}
+{% endif -%}
+{% if item.pending -%}
+{{ item.pending }} évaluation(s) en attente de votre validation.
+Valider : {{ url('app_validation_index', {slug: item.domain.slug}) }}
+{% endif -%}
+{% endfor %}
+
+Pour ne plus recevoir ce rappel, demandez à un administrateur de décocher « Recevoir les rappels » sur votre compte.
