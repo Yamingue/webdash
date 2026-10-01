@@ -1,11 +1,20 @@
+{# Classes complètes : Tailwind ne détecte pas les noms construits dynamiquement. #}
 {% set route = app.request.attributes.get('_route') %}
 {% set slug = app.request.attributes.get('slug') %}
-{% set link = 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ' %}
-{% set on = 'bg-indigo-50 text-indigo-700' %}
-{% set off = 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' %}
-<aside data-sidebar-target="panel" class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-gray-200 bg-white transition-transform lg:translate-x-0">
-    <div class="flex h-16 shrink-0 items-center gap-2 px-6 text-lg font-bold text-indigo-600">
-        <twig:ux:icon name="lucide:layout-dashboard" class="size-6" /> WebDash
+{% set link = 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ' %}
+{# Actif : barre orange collée au bord gauche de la sidebar (le nav a px-3, d'où -left-3). #}
+{% set on = 'relative bg-white/15 text-white before:absolute before:-left-3 before:inset-y-1 before:w-1 before:rounded-r-full before:bg-moov-orange' %}
+{% set off = 'text-white/60 hover:bg-white/10 hover:text-white' %}
+{% set section = 'px-3 pb-1 pt-5 text-xs font-bold uppercase tracking-wider text-sky-100' %}
+<aside data-sidebar-target="panel" class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col bg-moov-blue text-white shadow-xl transition-transform lg:translate-x-0 lg:shadow-none">
+    <div class="flex h-16 shrink-0 items-center gap-3 border-b border-white/15 px-5">
+        <span class="flex size-9 items-center justify-center rounded-xl bg-moov-orange text-white shadow-sm">
+            <twig:ux:icon name="lucide:layout-dashboard" class="size-5" />
+        </span>
+        <span class="leading-tight">
+            <span class="block text-lg font-bold tracking-tight">WebDash</span>
+            <span class="block text-[11px] font-semibold uppercase tracking-wider text-sky-100">Moov Africa</span>
+        </span>
     </div>
     <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Navigation principale">
         <a href="{{ path('app_dashboard') }}" class="{{ link }}{{ route == 'app_dashboard' ? on : off }}">
@@ -16,6 +25,10 @@
             <twig:ux:icon name="lucide:file-text" class="size-5" /> Rapports
         </a>
 
+        <a href="{{ path('app_score_help') }}" class="{{ link }}{{ route starts with 'app_score' ? on : off }}">
+            <twig:ux:icon name="lucide:calculator" class="size-5" /> Calcul des scores
+        </a>
+
         {% if this.canViewJournal %}
             <a href="{{ path('app_audit_index') }}" class="{{ link }}{{ route starts with 'app_audit' ? on : off }}">
                 <twig:ux:icon name="lucide:shield-check" class="size-5" /> Journal
@@ -24,23 +37,24 @@
 
         {% set menu = this.menu %}
         {% if menu is not empty %}
-            <p class="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-gray-400">Domaines</p>
+            <p class="{{ section }}">Domaines</p>
             {% for item in menu %}
                 {% set current = slug == item.domain.slug %}
-                <div class="flex items-center gap-1 rounded-lg {{ current ? on : off }}">
+                {% set iconHover = current ? 'hover:bg-white/10' : 'hover:bg-white/15' %}
+                <div class="flex items-center gap-1 rounded-lg transition-colors {{ current ? on : off }}">
                     <a href="{{ path('app_domain_show', {slug: item.domain.slug}) }}" class="flex flex-1 items-center gap-3 px-3 py-2 text-sm font-medium">
                         <twig:ux:icon :name="item.domain.icon" class="size-5" /> {{ item.domain.name }}
                     </a>
                     {% if item.canEvaluate %}
-                        <a href="{{ path('app_evaluation_entry', {slug: item.domain.slug}) }}" class="mr-1 rounded-md p-1.5 hover:bg-white/60" title="Saisie hebdomadaire" aria-label="Saisie hebdomadaire {{ item.domain.name }}">
+                        <a href="{{ path('app_evaluation_entry', {slug: item.domain.slug}) }}" class="mr-1 rounded-md p-1.5 {{ iconHover }}" title="Saisie hebdomadaire" aria-label="Saisie hebdomadaire {{ item.domain.name }}">
                             <twig:ux:icon name="lucide:pencil-line" class="size-4" />
                         </a>
                     {% endif %}
                     {% if item.canManage %}
-                        <a href="{{ path('app_validation_index', {slug: item.domain.slug}) }}" class="relative mr-1 rounded-md p-1.5 hover:bg-white/60" title="Validation ({{ item.pending }} en attente)" aria-label="Validation {{ item.domain.name }}, {{ item.pending }} en attente">
+                        <a href="{{ path('app_validation_index', {slug: item.domain.slug}) }}" class="relative mr-1 rounded-md p-1.5 {{ iconHover }}" title="Validation ({{ item.pending }} en attente)" aria-label="Validation {{ item.domain.name }}, {{ item.pending }} en attente">
                             <twig:ux:icon name="lucide:circle-check" class="size-4" />
                             {% if item.pending > 0 %}
-                                <span class="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-4 text-white">{{ item.pending }}</span>
+                                <span class="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-moov-orange px-1 text-[10px] font-bold leading-4 text-slate-900">{{ item.pending }}</span>
                             {% endif %}
                         </a>
                     {% endif %}
@@ -49,7 +63,7 @@
         {% endif %}
 
         {% if is_granted('ROLE_ADMIN') %}
-            <p class="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-gray-400">Administration</p>
+            <p class="{{ section }}">Administration</p>
             <a href="{{ path('app_admin_domain_index') }}" class="{{ link }}{{ route starts with 'app_admin_domain' ? on : off }}">
                 <twig:ux:icon name="lucide:layers" class="size-5" /> Domaines
             </a>

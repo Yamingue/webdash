@@ -4,6 +4,7 @@ namespace App\Form;
 
 use App\Entity\Evaluation;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -29,6 +30,11 @@ final class EvaluationEntryType extends AbstractType
                     'constraints' => [new NotBlank(), new PositiveOrZero()],
                 ]);
             }
+            // Version de la ligne au moment de l'affichage : sert à détecter une modification concurrente à l'enregistrement.
+            $form->add('version', HiddenType::class, [
+                'mapped' => false,
+                'data' => $evaluation instanceof Evaluation ? $evaluation->getVersion() : 0,
+            ]);
             $form
                 ->add('score', NumberType::class, [
                     'label' => 'Score', 'required' => false, 'html5' => true, 'scale' => 2, 'disabled' => $disabled,

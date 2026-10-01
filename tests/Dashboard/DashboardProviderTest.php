@@ -127,18 +127,37 @@ final class DashboardProviderTest extends KernelTestCase
         }
     }
 
-    public function testSeriesOverSeveralWeeksWithGaps(): void
+    public function testSummaryForReturnsOnlyThatDomainWithTheSameFiguresAsTheFullList(): void
     {
         $kpi = $this->reseauKpi();
-        $this->evaluate($kpi, '2026-09-14', 47.5);  // 50 %
+        $this->evaluate($kpi, self::PREVIOUS, 76);  // 80 %
         $this->evaluate($kpi, self::WEEK, 95);      // 100 %
 
-        $weeks = [$this->monday('2026-09-14'), $this->monday(self::PREVIOUS), $this->monday(self::WEEK)];
-        $series = $this->provider->series($this->user('manager@example.com'), $weeks);
+        $manager = $this->user('manager@example.com');
+        $week = $this->monday(self::WEEK);
 
-        $id = $kpi->getDomain()->getId();
-        $this->assertSame(['2026-09-14' => 50.0, '2026-09-21' => null, '2026-09-28' => 100.0], $series[$id]);
-        $this->assertSame([], $this->provider->series($this->user('manager@example.com'), []));
+        $single = $this->provider->summaryFor($manager, $kpi->getDomain(), $week);
+        $fromList = $this->provider->summaries($manager, $week)[0];
+
+        $this->assertSame($kpi->getDomain(), $single->domain);
+        $this->assertSame(100.0, $single->average);
+        $this->assertSame(20.0, $single->trend());
+        $this->assertSame($fromList->average, $single->average);
+        $this->assertSame($fromList->previousAverage, $single->previousAverage);
+        $this->assertSame($fromList->evaluatedCount(), $single->evaluatedCount());
+        $this->assertSame($fromList->pending, $single->pending);
+    }
+
+    public function testSummaryForDoesNotMixOtherDomains(): void
+    {
+        $this->evaluate($this->reseauKpi(), self::WEEK, 95);
+        $finance = self::getContainer()->get(DomainRepository::class)->findOneBy(['slug' => 'finance']);
+
+        $summary = $this->provider->summaryFor($this->user('admin@example.com'), $finance, $this->monday(self::WEEK));
+
+        $this->assertSame($finance, $summary->domain);
+        $this->assertNull($summary->average, 'Finance n\'a aucune évaluation');
+        $this->assertSame(1, $summary->kpiCount());
     }
 
     public function testLatestIsEachKpisLastEntryEvenIfOld(): void

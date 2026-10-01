@@ -8,10 +8,12 @@ use App\Entity\User;
 use App\Form\WeeklyEntryType;
 use App\Repository\EvaluationRepository;
 use App\Security\DomainVoter;
+use App\Service\SafeFlusher;
 use App\Service\Week;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -27,6 +29,7 @@ final class EvaluationController extends AbstractController
         Request $request,
         EvaluationRepository $repository,
         EntityManagerInterface $em,
+        SafeFlusher $flusher,
         #[CurrentUser] User $user,
     ): Response {
         if (!$domain->isActive() && !$this->isGranted('ROLE_ADMIN')) {
@@ -53,6 +56,12 @@ final class EvaluationController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            // Quelqu'un a modifié une de ces lignes (ou créé celle de cette semaine) depuis l'ouverture de la page :
+            // on n'écrase rien, on recharge les valeurs à jour.
+            if ($this->hasConflict($form, $evaluations)) {
+                return $this->conflict($domain, $week);
+            }
+
             $submitting = $form->get('submit')->isClicked();
             $submitted = $incomplete = 0;
 
@@ -74,7 +83,10 @@ final class EvaluationController extends AbstractController
                 }
                 $em->persist($evaluation);
             }
-            $em->flush();
+            // Conflit détecté au moment d'écrire (course entre deux enregistrements) : rien n'est enregistré.
+            if (!$flusher->flush()) {
+                return $this->conflict($domain, $week);
+            }
 
             if ($submitting) {
                 $this->addFlash('success', \sprintf('%d évaluation(s) soumise(s).', $submitted));
@@ -96,5 +108,25 @@ final class EvaluationController extends AbstractController
             'nextWeek' => $week->modify('+1 week'),
             'currentWeek' => Week::resolve(null),
         ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
+    }
+
+    /** @param list<Evaluation> $evaluations lignes du formulaire, dans l'ordre d'affichage */
+    private function hasConflict(FormInterface $form, array $evaluations): bool
+    {
+        foreach ($form->get('evaluations')->all() as $index => $row) {
+            // version vue à l'ouverture de la page (0 pour une ligne pas encore enregistrée)
+            if ((int) $row->get('version')->getData() !== $evaluations[$index]->getVersion()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function conflict(Domain $domain, \DateTimeImmutable $week): Response
+    {
+        $this->addFlash('warning', 'Ces évaluations ont été modifiées par quelqu\'un d\'autre pendant que vous les éditiez. Vos modifications n\'ont pas été enregistrées : vérifiez les valeurs à jour, puis recommencez.');
+
+        return $this->redirectToRoute('app_evaluation_entry', ['slug' => $domain->getSlug(), 'week' => $week->format('Y-m-d')]);
     }
 }

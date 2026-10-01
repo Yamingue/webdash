@@ -32,6 +32,79 @@ class EvaluationRepository extends ServiceEntityRepository
         return $indexed;
     }
 
+    /** Nombre de semaines distinctes ayant au moins une évaluation soumise ou validée dans le domaine. */
+    public function countReportableWeeksForDomain(Domain $domain): int
+    {
+        return (int) $this->createQueryBuilder('e')
+            ->select('COUNT(DISTINCT e.weekStart)')
+            ->join('e.kpi', 'k')
+            ->andWhere('k.domain = :domain')
+            ->andWhere('e.status IN (:statuses)')
+            ->setParameter('domain', $domain)
+            ->setParameter('statuses', [EvaluationStatus::Submitted, EvaluationStatus::Validated])
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Une page de semaines renseignées (évaluations soumises ou validées), la plus récente d'abord.
+     *
+     * @return list<\DateTimeImmutable> lundis
+     */
+    public function findReportableWeeksForDomain(Domain $domain, int $limit, int $offset): array
+    {
+        $rows = $this->createQueryBuilder('e')
+            ->select('e.weekStart AS week')
+            ->join('e.kpi', 'k')
+            ->andWhere('k.domain = :domain')
+            ->andWhere('e.status IN (:statuses)')
+            ->setParameter('domain', $domain)
+            ->setParameter('statuses', [EvaluationStatus::Submitted, EvaluationStatus::Validated])
+            ->groupBy('e.weekStart')
+            ->orderBy('e.weekStart', 'DESC')
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_map(
+            static fn (array $row): \DateTimeImmutable => $row['week'] instanceof \DateTimeInterface
+                ? \DateTimeImmutable::createFromInterface($row['week'])
+                : new \DateTimeImmutable((string) $row['week']),
+            $rows,
+        );
+    }
+
+    /**
+     * Évaluations soumises ou validées du domaine pour ces semaines, plus récente semaine d'abord,
+     * puis dans l'ordre d'affichage des KPI.
+     *
+     * @param list<\DateTimeImmutable> $weeks
+     *
+     * @return list<Evaluation>
+     */
+    public function findReportableForDomainWeeks(Domain $domain, array $weeks): array
+    {
+        if ([] === $weeks) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('e')
+            ->join('e.kpi', 'k')
+            ->addSelect('k')
+            ->andWhere('k.domain = :domain')
+            ->andWhere('e.status IN (:statuses)')
+            ->andWhere('e.weekStart IN (:weeks)')
+            ->setParameter('domain', $domain)
+            ->setParameter('statuses', [EvaluationStatus::Submitted, EvaluationStatus::Validated])
+            ->setParameter('weeks', array_map(static fn (\DateTimeImmutable $w): string => $w->format('Y-m-d'), $weeks))
+            ->orderBy('e.weekStart', 'DESC')
+            ->addOrderBy('k.position', 'ASC')
+            ->addOrderBy('k.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     /** @return list<Evaluation> */
     public function findForDomainBetween(Domain $domain, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {

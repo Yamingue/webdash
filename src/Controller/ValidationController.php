@@ -8,7 +8,7 @@ use App\Entity\User;
 use App\Repository\EvaluationRepository;
 use App\Security\DomainVoter;
 use App\Security\EvaluationVoter;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Service\SafeFlusher;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -34,7 +34,7 @@ final class ValidationController extends AbstractController
 
     #[Route('/evaluations/{id}/reopen', name: 'app_evaluation_reopen', methods: ['POST'])]
     #[IsGranted(EvaluationVoter::REOPEN, subject: 'evaluation')]
-    public function reopen(Evaluation $evaluation, Request $request, EntityManagerInterface $em): RedirectResponse
+    public function reopen(Evaluation $evaluation, Request $request, SafeFlusher $flusher): RedirectResponse
     {
         $this->checkToken($request, 'review_'.$evaluation->getId());
 
@@ -46,7 +46,9 @@ final class ValidationController extends AbstractController
         }
 
         $evaluation->reopen($reason);
-        $em->flush();
+        if (!$flusher->flush()) {
+            return $this->conflict($evaluation->getKpi()->getDomain());
+        }
         $this->addFlash('success', \sprintf('%s déverrouillé : renvoyé en brouillon à l\'évaluateur.', $evaluation->getKpi()->getCode()));
 
         return $this->backToList($evaluation->getKpi()->getDomain());
@@ -54,12 +56,14 @@ final class ValidationController extends AbstractController
 
     #[Route('/evaluations/{id}/validate', name: 'app_evaluation_validate', methods: ['POST'])]
     #[IsGranted(EvaluationVoter::REVIEW, subject: 'evaluation')]
-    public function validate(Evaluation $evaluation, Request $request, EntityManagerInterface $em, #[CurrentUser] User $user): RedirectResponse
+    public function validate(Evaluation $evaluation, Request $request, SafeFlusher $flusher, #[CurrentUser] User $user): RedirectResponse
     {
         $this->checkToken($request, 'review_'.$evaluation->getId());
 
         $evaluation->validate($user);
-        $em->flush();
+        if (!$flusher->flush()) {
+            return $this->conflict($evaluation->getKpi()->getDomain());
+        }
         $this->addFlash('success', \sprintf('%s validé pour la semaine du %s.', $evaluation->getKpi()->getCode(), $evaluation->getWeekStart()->format('d/m/Y')));
 
         return $this->backToList($evaluation->getKpi()->getDomain());
@@ -67,7 +71,7 @@ final class ValidationController extends AbstractController
 
     #[Route('/evaluations/{id}/reject', name: 'app_evaluation_reject', methods: ['POST'])]
     #[IsGranted(EvaluationVoter::REVIEW, subject: 'evaluation')]
-    public function reject(Evaluation $evaluation, Request $request, EntityManagerInterface $em): RedirectResponse
+    public function reject(Evaluation $evaluation, Request $request, SafeFlusher $flusher): RedirectResponse
     {
         $this->checkToken($request, 'review_'.$evaluation->getId());
 
@@ -79,7 +83,9 @@ final class ValidationController extends AbstractController
         }
 
         $evaluation->reject($reason);
-        $em->flush();
+        if (!$flusher->flush()) {
+            return $this->conflict($evaluation->getKpi()->getDomain());
+        }
         $this->addFlash('success', \sprintf('%s rejeté : renvoyé en brouillon à l\'évaluateur.', $evaluation->getKpi()->getCode()));
 
         return $this->backToList($evaluation->getKpi()->getDomain());
@@ -91,7 +97,7 @@ final class ValidationController extends AbstractController
         #[MapEntity(mapping: ['slug' => 'slug'])] Domain $domain,
         Request $request,
         EvaluationRepository $evaluations,
-        EntityManagerInterface $em,
+        SafeFlusher $flusher,
         #[CurrentUser] User $user,
     ): RedirectResponse {
         $this->checkToken($request, 'validate_all_'.$domain->getSlug());
@@ -101,7 +107,9 @@ final class ValidationController extends AbstractController
             $evaluation->validate($user);
             ++$count;
         }
-        $em->flush();
+        if (!$flusher->flush()) {
+            return $this->conflict($domain);
+        }
         $this->addFlash('success', \sprintf('%d évaluation(s) validée(s).', $count));
 
         return $this->backToList($domain);
@@ -112,6 +120,14 @@ final class ValidationController extends AbstractController
         if (!$this->isCsrfTokenValid($id, $request->request->getString('_token'))) {
             throw $this->createAccessDeniedException('Jeton CSRF invalide.');
         }
+    }
+
+    /** Une autre personne a modifié ces évaluations entre-temps : rien n'est enregistré, on recharge la liste à jour. */
+    private function conflict(Domain $domain): RedirectResponse
+    {
+        $this->addFlash('warning', 'Ces évaluations viennent d\'être modifiées par quelqu\'un d\'autre. Votre action n\'a pas été appliquée : vérifiez l\'état à jour, puis recommencez si nécessaire.');
+
+        return $this->backToList($domain);
     }
 
     private function backToList(Domain $domain): RedirectResponse

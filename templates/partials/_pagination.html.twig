@@ -1,0 +1,33 @@
+{#
+  Pagination. Variables : route, params (sans "page"), page, pages, fragment (ancre facultative).
+  Affiche Précédent / Suivant et les numéros utiles (première, dernière, page courante et ses voisines).
+#}
+{% if pages > 1 %}
+    {% set shown = [] %}
+    {% for n in 1..pages %}
+        {% if n == 1 or n == pages or (n >= page - 1 and n <= page + 1) %}{% set shown = shown|merge([n]) %}{% endif %}
+    {% endfor %}
+    {% set link = 'inline-flex min-w-9 items-center justify-center rounded-lg border px-3 py-1.5 text-sm ' %}
+    <nav aria-label="Pagination" class="mt-4 flex flex-wrap items-center justify-center gap-1">
+        {% if page > 1 %}
+            <a href="{{ path(route, params|merge({page: page - 1, _fragment: fragment|default(null)})) }}" rel="prev" class="{{ link }}border-gray-200 text-gray-700 hover:bg-gray-50">Précédent</a>
+        {% else %}
+            <span class="{{ link }}border-gray-100 text-gray-300" aria-disabled="true">Précédent</span>
+        {% endif %}
+
+        {% for n in shown %}
+            {% if not loop.first and n - shown[loop.index0 - 1] > 1 %}<span class="px-1 text-gray-400" aria-hidden="true">…</span>{% endif %}
+            {% if n == page %}
+                <span class="{{ link }}border-indigo-500 bg-indigo-50 font-semibold text-indigo-700" aria-current="page">{{ n }}</span>
+            {% else %}
+                <a href="{{ path(route, params|merge({page: n, _fragment: fragment|default(null)})) }}" class="{{ link }}border-gray-200 text-gray-700 hover:bg-gray-50" aria-label="Page {{ n }}">{{ n }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page < pages %}
+            <a href="{{ path(route, params|merge({page: page + 1, _fragment: fragment|default(null)})) }}" rel="next" class="{{ link }}border-gray-200 text-gray-700 hover:bg-gray-50">Suivant</a>
+        {% else %}
+            <span class="{{ link }}border-gray-100 text-gray-300" aria-disabled="true">Suivant</span>
+        {% endif %}
+    </nav>
+{% endif %}

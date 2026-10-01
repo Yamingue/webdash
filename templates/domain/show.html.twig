@@ -24,6 +24,15 @@
 {% block content %}
     {{ include('partials/_week_nav.html.twig', {route: 'app_domain_show', params: {slug: domain.slug}}) }}
 
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <twig:Dashboard:Gauge label="Score du domaine" :icon="domain.icon" :value="summary.average" :trend="summary.trend" :detailUrl="path('app_score_domain', {slug: domain.slug, week: week|date('Y-m-d')})" class="justify-center" />
+        <twig:Dashboard:StatCard label="KPI évalués" :value="summary.evaluatedCount ~ ' / ' ~ summary.kpiCount" icon="lucide:bar-chart-3" hint="Soumis ou validés cette semaine" />
+        <twig:Dashboard:StatCard label="KPI à l'objectif" :value="summary.atTargetCount" icon="lucide:circle-check" hint="Atteinte ≥ 100 %" />
+        <twig:Dashboard:StatCard label="KPI sans saisie" :value="summary.missingCount" icon="lucide:circle-alert" hint="À renseigner ou à soumettre" />
+    </div>
+
+    <p class="-mt-2 text-right text-xs"><a href="{{ path('app_score_help') }}" class="text-indigo-600 hover:underline">Comment le score est calculé ?</a></p>
+
     <section aria-labelledby="kpi-charts-title" class="space-y-3">
         <h2 id="kpi-charts-title" class="text-sm font-semibold text-gray-900">Évolution valeur / objectif par KPI <span class="font-normal text-gray-500">({{ chartWeekCount }} semaines jusqu'au {{ week|date('d/m/Y') }})</span></h2>
         <div class="grid gap-4 xl:grid-cols-2">
@@ -83,5 +92,25 @@
                 </tbody>
             </table>
         </div>
+    </twig:Dashboard:Card>
+
+    <twig:Dashboard:Card title="Historique des évaluations" id="historique">
+        {% if history.groups is empty %}
+            <p class="flex items-center gap-2 py-4 text-sm text-gray-500"><twig:ux:icon name="lucide:inbox" class="size-5" /> Aucune évaluation soumise ou validée pour le moment.</p>
+        {% else %}
+            <ul class="space-y-2.5">
+                {% for group in history.groups %}
+                    <li class="{{ loop.first ? '' : 'pt-2 ' }}text-xs font-semibold uppercase tracking-wide text-gray-400" role="presentation">Semaine du {{ group.week|date('d/m/Y') }}</li>
+                    {% for line in group.lines %}{{ include('dashboard/_kpi_bar.html.twig', {line: line}) }}{% endfor %}
+                {% endfor %}
+            </ul>
+
+            <p class="mt-4 text-center text-xs text-gray-500">
+                Semaine{{ history.lastWeekNumber > history.firstWeekNumber ? 's' : '' }}
+                {{ history.firstWeekNumber }}{{ history.lastWeekNumber > history.firstWeekNumber ? ' à ' ~ history.lastWeekNumber : '' }}
+                sur {{ history.totalWeeks }} · page {{ history.page }} sur {{ history.pages }}
+            </p>
+            {{ include('partials/_pagination.html.twig', {route: 'app_domain_show', params: {slug: domain.slug, week: week|date('Y-m-d')}, page: history.page, pages: history.pages, fragment: 'historique'}) }}
+        {% endif %}
     </twig:Dashboard:Card>
 {% endblock %}

@@ -28,11 +28,30 @@ final class DashboardProvider
     public const LOOKBACK_WEEKS = 26;
     /** Plafond (%) appliqué à chaque taux dans les moyennes pondérées. */
     public const RATE_CAP = 120.0;
+    /** Sous ce taux (%) : rouge. De ce taux à THRESHOLD_GOAL : orange. */
+    public const THRESHOLD_WARN = 80.0;
+    /** À partir de ce taux (%) : vert, l'objectif est atteint. */
+    public const THRESHOLD_GOAL = 100.0;
 
     /** @return list<DomainSummary> un résumé par domaine visible par l'utilisateur */
     public function summaries(User $user, \DateTimeImmutable $week): array
     {
-        $domains = $this->domains->findVisibleTo($user);
+        return $this->buildSummaries($user, $this->domains->findVisibleTo($user), $week);
+    }
+
+    /** Résumé d'un seul domaine (page du domaine). Le droit d'accès au domaine est vérifié par l'appelant. */
+    public function summaryFor(User $user, Domain $domain, \DateTimeImmutable $week): DomainSummary
+    {
+        return $this->buildSummaries($user, [$domain], $week)[0];
+    }
+
+    /**
+     * @param list<Domain> $domains
+     *
+     * @return list<DomainSummary>
+     */
+    private function buildSummaries(User $user, array $domains, \DateTimeImmutable $week): array
+    {
         $weekKey = $week->format('Y-m-d');
         $previousKey = $week->modify('-1 week')->format('Y-m-d');
         $from = $week->modify(\sprintf('-%d weeks', self::LOOKBACK_WEEKS));
@@ -86,36 +105,6 @@ final class DashboardProvider
         }
 
         return $summaries;
-    }
-
-    /**
-     * Taux d'atteinte moyen par domaine sur plusieurs semaines (pour le graphique).
-     *
-     * @param list<\DateTimeImmutable> $weeks
-     *
-     * @return array<int, array<string, ?float>> id de domaine => (lundi Y-m-d => moyenne %)
-     */
-    public function series(User $user, array $weeks): array
-    {
-        if ([] === $weeks) {
-            return [];
-        }
-
-        $domains = $this->domains->findVisibleTo($user);
-        $byWeek = $this->groupByWeekAndKpi($this->evaluations->findReportable($domains, $weeks[0], end($weeks)));
-
-        $series = [];
-        foreach ($domains as $domain) {
-            foreach ($weeks as $week) {
-                $key = $week->format('Y-m-d');
-                $series[$domain->getId()][$key] = self::weightedAverage(array_filter(
-                    $byWeek[$key] ?? [],
-                    static fn (Evaluation $e): bool => $e->getKpi()->getDomain() === $domain && $e->getKpi()->isActive(),
-                ));
-            }
-        }
-
-        return $series;
     }
 
     /**

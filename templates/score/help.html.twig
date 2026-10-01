@@ -1,0 +1,114 @@
+{% extends 'dashboard/layout.html.twig' %}
+
+{% block title %}Calcul des scores{% endblock %}
+{% block page_title %}Comment sont calculés les scores{% endblock %}
+
+{% block content %}
+    <p class="max-w-3xl text-sm text-gray-600">
+        Chaque semaine, les évaluateurs saisissent un score pour chaque KPI. La plateforme le compare à l'objectif pour obtenir un
+        <strong>taux d'atteinte</strong>, puis regroupe les taux en un <strong>score par domaine</strong> et en un <strong>score global pondéré</strong>.
+        Cette page donne les règles exactes ; les pages « Voir le calcul » montrent les chiffres réels.
+    </p>
+
+    <twig:Dashboard:Card title="1. Ce qui est pris en compte">
+        <ul class="list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li>Seules les évaluations <strong>soumises</strong> ou <strong>validées</strong> comptent. Un brouillon est ignoré.</li>
+            <li>Seuls les KPI <strong>actifs</strong> comptent.</li>
+            <li>Un KPI <strong>non saisi</strong> cette semaine n'entre pas dans le calcul : le domaine est jugé sur ce qui est saisi. La carte « Non renseignés » du tableau de bord signale ce qui manque.</li>
+            <li>L'<strong>objectif</strong>, le <strong>sens</strong> et le <strong>poids</strong> du KPI sont copiés dans chaque évaluation à sa création : les modifier ensuite ne change pas les semaines déjà saisies.</li>
+        </ul>
+    </twig:Dashboard:Card>
+
+    <twig:Dashboard:Card title="2. Taux d'atteinte d'un KPI">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="text-xs uppercase text-gray-500">
+                    <tr><th class="pb-3 pr-4">Cas</th><th class="pb-3">Formule</th></tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <tr><td class="py-2 pr-4">Plus haut = mieux (cas général)</td><td class="py-2"><code>score ÷ objectif × 100</code></td></tr>
+                    <tr><td class="py-2 pr-4">Plus bas = mieux (churn, taux de coupure…)</td><td class="py-2"><code>200 − score ÷ objectif × 100</code>, avec un minimum de 0. À l'objectif : 100 % ; 10 % au-dessus : 90 % ; 10 % en dessous : 110 % ; le double de l'objectif : 0 %.</td></tr>
+                    <tr><td class="py-2 pr-4">Objectif à 0</td><td class="py-2">Plus haut = mieux : pas de taux (N/D). Plus bas = mieux : 100 % si le score est 0, sinon 0 %.</td></tr>
+                    <tr><td class="py-2 pr-4">Pas de score</td><td class="py-2">Pas de taux (N/D).</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="mt-3 text-sm text-gray-700">
+            Couleurs : <span class="font-medium text-emerald-600">vert</span> à {{ goal|round }} % et plus (objectif atteint),
+            <span class="font-medium text-amber-600">orange</span> de {{ warn|round }} % à moins de {{ goal|round }} %,
+            <span class="font-medium text-rose-600">rouge</span> sous {{ warn|round }} %.
+        </p>
+    </twig:Dashboard:Card>
+
+    <twig:Dashboard:Card title="3. Score d'un domaine : moyenne pondérée">
+        <p class="text-sm text-gray-700">
+            <code>score du domaine = Σ(poids × taux retenu) ÷ Σ(poids)</code>, calculé sur les KPI saisis.
+            Le <strong>taux retenu</strong> est le taux du KPI <strong>plafonné à {{ cap|round }} %</strong> : un KPI très au-dessus de son objectif ne doit pas masquer un KPI en retard.
+            Dans la liste des KPI, chacun garde son vrai taux ; le plafond ne joue que dans la moyenne.
+        </p>
+
+        <h3 class="mt-4 text-sm font-semibold text-gray-900">Exemple</h3>
+        <div class="mt-2 overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="text-xs uppercase text-gray-500">
+                    <tr>
+                        <th class="pb-2 pr-4">KPI</th>
+                        <th class="pb-2 pr-4">Score / objectif</th>
+                        <th class="pb-2 pr-4">Taux</th>
+                        <th class="pb-2 pr-4">Taux retenu</th>
+                        <th class="pb-2">Poids</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for row in example.rows %}
+                        <tr>
+                            <td class="py-2 pr-4">{{ row.name }}{% if row.lowerIsBetter %} <span class="text-xs text-gray-500">(plus bas = mieux)</span>{% endif %}</td>
+                            <td class="py-2 pr-4">{{ row.score|round(1) }} / {{ row.lowerIsBetter ? '≤ ' : '' }}{{ row.target|round(1) }}</td>
+                            <td class="py-2 pr-4">{{ row.rate|round(1) }} %</td>
+                            <td class="py-2 pr-4">{{ row.counted|round(1) }} %{% if row.counted < row.rate %} <span class="text-xs text-amber-700">(plafonné)</span>{% endif %}</td>
+                            <td class="py-2">{{ row.weight|round(2) }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="mt-3 text-sm text-gray-700" data-testid="example-result">
+            Score du domaine = ({{ example.rows|map(r => r.counted|round(1) ~ ' × ' ~ r.weight|round(2))|join(' + ') }})
+            ÷ ({{ example.rows|map(r => r.weight|round(2))|join(' + ') }})
+            = {{ example.weightedSum|round(1) }} ÷ {{ example.sumWeights|round(2) }} =
+            <strong>{{ example.score|round(1) }} %</strong>
+        </p>
+    </twig:Dashboard:Card>
+
+    <twig:Dashboard:Card title="4. Score global pondéré">
+        <p class="text-sm text-gray-700">
+            Le score global est la <strong>moyenne simple</strong> des scores des domaines qui ont des données cette semaine : les domaines pèsent autant les uns que les autres.
+            Un domaine sans évaluation soumise n'entre pas dans la moyenne. L'arc de la jauge est plein à 100 %.
+            L'écart affiché en points compare avec le score de la semaine précédente.
+        </p>
+    </twig:Dashboard:Card>
+
+    <twig:Dashboard:Card title="5. Sur les cartes de domaine">
+        <ul class="list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li><strong>KPIs renseignés</strong> : la dernière valeur saisie de chaque KPI, même si elle date de plusieurs semaines (la semaine est alors indiquée).</li>
+            <li><strong>Tous</strong> : l'historique des dernières semaines renseignées, avec tous les KPI du domaine (N/D quand un KPI n'a pas été saisi cette semaine-là).</li>
+            <li>La pastille de l'en-tête est le score du domaine pour la <strong>semaine choisie</strong>.</li>
+        </ul>
+    </twig:Dashboard:Card>
+
+    <twig:Dashboard:Card title="6. Les compteurs du tableau de bord">
+        <p class="text-sm text-gray-700">
+            Chaque KPI actif est classé selon son taux d'atteinte de la semaine choisie. Les quatre compteurs additionnent tous les KPI : leur total est toujours le nombre de KPI actifs.
+        </p>
+        <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700" data-testid="status-rules">
+            <li><span class="font-medium text-rose-600">KPI rouges</span> : taux sous {{ warn|round }} % (action urgente).</li>
+            <li><span class="font-medium text-amber-600">KPI ambre</span> : de {{ warn|round }} % à moins de {{ goal|round }} % (surveillance).</li>
+            <li><span class="font-medium text-emerald-600">KPI verts</span> : {{ goal|round }} % et plus (objectif atteint).</li>
+            <li><span class="font-medium text-slate-500">Non renseignés</span> : pas d'évaluation soumise ou validée cette semaine (absente ou encore en brouillon), ou taux non calculable (objectif à 0). Ils n'entrent pas dans le score.</li>
+        </ul>
+    </twig:Dashboard:Card>
+
+    <p class="text-sm">
+        <a href="{{ path('app_score_global') }}" class="text-indigo-600 hover:underline">Voir le calcul de l'atteinte globale →</a>
+    </p>
+{% endblock %}

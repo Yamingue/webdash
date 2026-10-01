@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+/* Identité Moov Africa : bleu en fond, orange en accent. Utilisables partout : bg-moov-blue, text-moov-orange… */
+@theme {
+    --color-moov-blue: #0066b3;
+    --color-moov-blue-dark: #004f8c;
+    --color-moov-orange: #f47920;
+}

@@ -1,0 +1,29 @@
+{#
+  Carte d'un statut de KPI (rouge / ambre / vert / non renseigné).
+  Props : status (red|amber|green|missing), count, label, subtitle, breakdown.
+#}
+{% props status, count, label, subtitle, breakdown = {} %}
+{# Classes complètes : Tailwind ne détecte pas les noms construits dynamiquement. #}
+{# Charte demandée par le client : fond teinté et filet supérieur de la couleur du statut. #}
+{% set tones = {
+    red: {card: 'border-red-200 border-t-red-600 bg-red-100', number: 'text-red-700', dot: 'bg-red-600'},
+    amber: {card: 'border-amber-200 border-t-amber-500 bg-amber-100', number: 'text-amber-800', dot: 'bg-amber-500'},
+    green: {card: 'border-green-200 border-t-green-600 bg-green-100', number: 'text-green-700', dot: 'bg-green-600'},
+    missing: {card: 'border-gray-200 border-t-gray-400 bg-white', number: 'text-gray-500', dot: 'bg-gray-400'},
+} %}
+{% set tone = tones[status] %}
+<div data-status-card="{{ status }}"
+        {{ attributes.defaults({class: 'flex flex-col items-center justify-center rounded-xl border border-t-4 p-4 text-center shadow-sm ' ~ tone.card}) }}>
+    <span class="text-4xl font-bold leading-none {{ tone.number }}">{{ count }}</span>
+    <span class="mt-2 flex items-center gap-2 text-sm font-medium text-gray-800">
+        <span class="size-2.5 rounded-full {{ tone.dot }}" aria-hidden="true"></span>{{ label }}
+    </span>
+    <span class="text-sm text-gray-600">{{ subtitle }}</span>
+    {% if breakdown is not empty %}
+        {% set parts = [] %}
+        {% for name, n in breakdown|slice(0, 3, true) %}{% set parts = parts|merge([name ~ ' ' ~ n]) %}{% endfor %}
+        <span class="mt-1 max-w-full truncate text-xs text-gray-500" title="{% for name, n in breakdown %}{{ name }} : {{ n }}{{ not loop.last ? ' · ' : '' }}{% endfor %}">
+            {{ parts|join(' · ') }}{{ breakdown|length > 3 ? ' · …' : '' }}
+        </span>
+    {% endif %}
+</div>

@@ -3,8 +3,10 @@
 namespace App\Controller;
 
 use App\Dashboard\DashboardProvider;
+use App\Dashboard\EvaluationHistory;
 use App\Dashboard\KpiChartBuilder;
 use App\Entity\Domain;
+use App\Entity\User;
 use App\Repository\EvaluationRepository;
 use App\Security\DomainVoter;
 use App\Service\Week;
@@ -13,6 +15,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 final class DomainController extends AbstractController
@@ -30,6 +33,8 @@ final class DomainController extends AbstractController
         EvaluationRepository $evaluations,
         DashboardProvider $provider,
         KpiChartBuilder $chartBuilder,
+        EvaluationHistory $history,
+        #[CurrentUser] User $user,
     ): Response {
         if (!$domain->isActive() && !$this->isGranted('ROLE_ADMIN')) {
             throw $this->createNotFoundException();
@@ -63,7 +68,17 @@ final class DomainController extends AbstractController
             'grid' => $grid,
             'charts' => $charts,
             'chartWeekCount' => self::CHART_WEEKS,
+            'summary' => $provider->summaryFor($user, $domain, $week),
+            'history' => $history->page($domain, $this->pageNumber($request)),
             'pending' => $this->isGranted(DomainVoter::MANAGE, $domain) ? $evaluations->countSubmittedForDomain($domain) : null,
         ]);
+    }
+
+    /** Numéro de page demandé ; toute valeur absente ou invalide (abc, tableau…) donne la première page. */
+    private function pageNumber(Request $request): int
+    {
+        $raw = $request->query->all()['page'] ?? 1;
+
+        return is_scalar($raw) ? (filter_var($raw, FILTER_VALIDATE_INT) ?: 1) : 1;
     }
 }

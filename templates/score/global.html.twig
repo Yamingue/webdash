@@ -1,0 +1,57 @@
+{% extends 'dashboard/layout.html.twig' %}
+
+{% block title %}Calcul du score global{% endblock %}
+{% block page_title %}Calcul du score global{% endblock %}
+
+{% block page_actions %}
+    {{ include('partials/_week_nav.html.twig', {route: 'app_score_global', params: {}}) }}
+{% endblock %}
+
+{% block content %}
+    <twig:Dashboard:Card title="Résultat">
+        <p class="text-3xl font-semibold text-gray-900" data-testid="global-score">{{ explanation.score is not null ? explanation.score|round(1) ~ ' %' : '—' }}</p>
+        {% if explanation.score is null %}
+            <p class="mt-1 text-sm text-gray-500">Aucun domaine n'a de score cette semaine.</p>
+        {% else %}
+            <p class="mt-2 text-sm text-gray-700" data-testid="global-formula">
+                = moyenne simple de ({% for s in explanation.counted %}{{ s.average|round(1) }}{{ not loop.last ? ' ; ' : '' }}{% endfor %})
+                = {{ explanation.counted|reduce((sum, s) => sum + s.average, 0)|round(1) }} ÷ {{ explanation.counted|length }}
+            </p>
+        {% endif %}
+        <p class="mt-2 text-xs text-gray-500">Les domaines pèsent autant les uns que les autres. <a href="{{ path('app_score_help') }}" class="text-indigo-600 hover:underline">Voir les règles</a></p>
+    </twig:Dashboard:Card>
+
+    <twig:Dashboard:Card title="Domaines pris en compte ({{ explanation.counted|length }})">
+        {% if explanation.counted is empty %}
+            <p class="py-4 text-sm text-gray-500">Aucun domaine n'a d'évaluation soumise ou validée pour cette semaine.</p>
+        {% else %}
+            <table class="w-full text-left text-sm">
+                <thead class="text-xs uppercase text-gray-500">
+                    <tr><th class="pb-3 pr-4">Domaine</th><th class="pb-3 pr-4">Score</th><th class="pb-3"></th></tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for s in explanation.counted %}
+                        <tr>
+                            <td class="py-2 pr-4 font-medium">{{ s.domain.name }}</td>
+                            <td class="py-2 pr-4">{{ s.average|round(1) }} %</td>
+                            <td class="py-2 text-right"><a href="{{ path('app_score_domain', {slug: s.domain.slug, week: explanation.week|date('Y-m-d')}) }}" class="text-indigo-600 hover:underline">Voir le calcul</a></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </twig:Dashboard:Card>
+
+    {% if explanation.withoutData is not empty %}
+        <twig:Dashboard:Card title="Domaines sans score cette semaine ({{ explanation.withoutData|length }})">
+            <ul class="divide-y divide-gray-100 text-sm">
+                {% for s in explanation.withoutData %}
+                    <li class="flex flex-wrap items-center justify-between gap-2 py-2">
+                        <span class="font-medium">{{ s.domain.name }}</span>
+                        <span class="text-gray-500">Aucune évaluation soumise ou validée : n'entre pas dans la moyenne.</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        </twig:Dashboard:Card>
+    {% endif %}
+{% endblock %}

@@ -9,9 +9,6 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 #[AsMessageHandler]
 final class SendRemindersHandler
 {
-    /** Fuseau de référence : le vendredi 9h et le « lundi » de la semaine se comptent à l'heure locale. */
-    public const TIMEZONE = 'Africa/Ndjamena';
-
     public function __construct(
         private readonly ReminderBuilder $builder,
         private readonly ReminderSender $sender,
@@ -21,7 +18,8 @@ final class SendRemindersHandler
 
     public function __invoke(SendRemindersMessage $message): void
     {
-        $week = Week::resolve(null, new \DateTimeImmutable('now', new \DateTimeZone(self::TIMEZONE)));
+        // « Maintenant » est à l'heure de l'application (Kernel, APP_TIMEZONE) : le lundi de la semaine en cours est local.
+        $week = Week::resolve(null);
         $reminders = $this->builder->build($week);
         $sent = $this->sender->send($reminders, $week);
 

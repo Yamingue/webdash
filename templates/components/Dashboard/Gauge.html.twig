@@ -1,22 +1,25 @@
+{# Classes complètes : Tailwind ne détecte pas les noms construits dynamiquement. #}
+{% set strokes = {red: 'stroke-rose-500', amber: 'stroke-amber-500', green: 'stroke-emerald-500'} %}
+{% set fills = {red: 'fill-rose-600', amber: 'fill-amber-600', green: 'fill-emerald-600'} %}
 {% set hasValue = this.value is not null %}
-<div {{ attributes.defaults({class: 'flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm'}) }}>
-    <p class="flex items-center justify-center gap-2 text-base font-medium text-gray-600">
-        <span class="flex size-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-            <twig:ux:icon :name="this.icon" class="size-5" />
-        </span>
-        {{ this.label }}
-    </p>
+{% set tone = this.toned ? this.tone : null %}
+{% set text = hasValue ? this.value|round(1) ~ '%' : '—' %}
 
-    <svg viewBox="4 4 92 84" class="mx-auto mt-2 w-full max-w-44" role="img"
+{% set labelHtml %}{% if this.labelUrl %}<a href="{{ this.labelUrl }}" class="hover:text-indigo-600 hover:underline">{{ this.label }}</a>{% else %}{{ this.label }}{% endif %}{% endset %}
+
+{% set svg %}
+    <svg viewBox="{{ this.viewBox }}" class="mx-auto w-full {{ this.isHalf ? 'max-w-40' : 'mt-2 max-w-44' }}" role="img"
          aria-label="{{ this.label }} : {{ hasValue ? this.value|round(1) ~ ' ' ~ this.unit : 'aucune donnée' }}">
         <title>{{ this.label }}</title>
         <path d="{{ this.trackPath }}" fill="none" class="stroke-gray-200" stroke-width="8" stroke-linecap="round" />
         {% if this.progressPath %}
-            <path d="{{ this.progressPath }}" fill="none" class="stroke-indigo-500" stroke-width="8" stroke-linecap="round" />
+            <path d="{{ this.progressPath }}" fill="none" class="{{ tone ? strokes[tone] : 'stroke-indigo-500' }}" stroke-width="8" stroke-linecap="round" />
         {% endif %}
-        <text x="50" y="57" text-anchor="middle" class="fill-slate-700" font-size="20" font-weight="600">{{ hasValue ? this.value|round(1) ~ '%' : '—' }}</text>
+        <text x="50" y="{{ this.textY }}" text-anchor="middle" class="{{ tone ? fills[tone] : 'fill-slate-700' }}" font-size="{{ this.fontSize }}" font-weight="{{ this.isHalf ? 700 : 600 }}">{{ text }}</text>
     </svg>
+{% endset %}
 
+{% set trendHtml %}
     {% if this.trend is not null %}
         <p class="mt-1 flex items-center justify-center gap-1 text-sm {{ this.trend >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">
             <twig:ux:icon :name="this.trend >= 0 ? 'lucide:trending-up' : 'lucide:trending-down'" class="size-4" />
@@ -25,4 +28,29 @@
     {% elseif not hasValue %}
         <p class="mt-1 text-center text-sm text-gray-500">Aucune donnée comparable</p>
     {% endif %}
+{% endset %}
+
+{% set detailHtml %}
+    {% if this.detailUrl %}
+        <a href="{{ this.detailUrl }}" class="mt-2 text-center text-xs text-indigo-600 hover:underline">Voir le calcul</a>
+    {% endif %}
+{% endset %}
+
+<div {{ attributes.defaults({class: 'flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm'}) }}>
+    {% if this.isHalf %}
+        {# forme demi-cercle : l'arc d'abord, puis le libellé dessous #}
+        {{ svg }}
+        <p class="mt-1 text-center text-base font-medium text-gray-700">{{ labelHtml }}</p>
+    {% else %}
+        <p class="flex items-center justify-center gap-2 text-base font-medium text-gray-600">
+            <span class="flex size-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                <twig:ux:icon :name="this.icon" class="size-5" />
+            </span>
+            {{ labelHtml }}
+        </p>
+        {{ svg }}
+    {% endif %}
+
+    {{ trendHtml }}
+    {{ detailHtml }}
 </div>

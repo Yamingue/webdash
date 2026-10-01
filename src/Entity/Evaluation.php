@@ -9,6 +9,8 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: EvaluationRepository::class)]
 #[ORM\UniqueConstraint(columns: ['kpi_id', 'week_start'])]
+#[ORM\Index(columns: ['week_start'])]
+#[ORM\Index(columns: ['status'])]
 class Evaluation
 {
     #[ORM\Id]
@@ -63,6 +65,11 @@ class Evaluation
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $rejectionReason = null;
 
+    /** Verrou optimiste : Doctrine refuse l'enregistrement si la ligne a été modifiée entre-temps par quelqu'un d'autre. */
+    #[ORM\Version]
+    #[ORM\Column(type: Types::INTEGER, options: ['default' => 1])]
+    private int $version = 1;
+
     public function __construct(Kpi $kpi, \DateTimeImmutable $weekStart)
     {
         $this->kpi = $kpi;
@@ -86,6 +93,12 @@ class Evaluation
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    /** Version de la ligne ; 0 tant qu'elle n'est pas enregistrée (sert à détecter une modification concurrente). */
+    public function getVersion(): int
+    {
+        return null === $this->id ? 0 : $this->version;
     }
 
     public function getKpi(): Kpi

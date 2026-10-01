@@ -268,14 +268,19 @@ final class ReminderTest extends KernelTestCase
         $schedule = (new Schedule(self::getContainer()->get('cache.app')))->getSchedule();
 
         $recurring = $schedule->getRecurringMessages();
-        $this->assertCount(1, $recurring);
+        $this->assertCount(2, $recurring, "sauvegarde nocturne + rappel hebdomadaire");
 
         $tz = new \DateTimeZone('Africa/Ndjamena');
-        $next = $recurring[0]->getTrigger()->getNextRunDate(new \DateTimeImmutable('2026-09-30 10:00', $tz)); // mercredi
-        $this->assertSame('Fri 2026-10-02 09:00', $next->setTimezone($tz)->format('D Y-m-d H:i'));
+        $wednesday = new \DateTimeImmutable('2026-09-30 10:00', $tz);
 
-        $afterFriday = $recurring[0]->getTrigger()->getNextRunDate(new \DateTimeImmutable('2026-10-02 09:00', $tz));
-        $this->assertSame('2026-10-09 09:00', $afterFriday->setTimezone($tz)->format('Y-m-d H:i'), 'la semaine suivante');
+        // sauvegarde : chaque nuit à 2h
+        $this->assertSame("Thu 2026-10-01 02:00", $recurring[0]->getTrigger()->getNextRunDate($wednesday)->setTimezone($tz)->format("D Y-m-d H:i"));
+
+        // rappel : chaque vendredi à 9h
+        $next = $recurring[1]->getTrigger()->getNextRunDate($wednesday);
+        $this->assertSame("Fri 2026-10-02 09:00", $next->setTimezone($tz)->format("D Y-m-d H:i"));
+        $afterFriday = $recurring[1]->getTrigger()->getNextRunDate(new \DateTimeImmutable('2026-10-02 09:00', $tz));
+        $this->assertSame("2026-10-09 09:00", $afterFriday->setTimezone($tz)->format("Y-m-d H:i"), "la semaine suivante");
     }
 
     public function testScheduledMessageIsHandledAndSendsTheReminders(): void

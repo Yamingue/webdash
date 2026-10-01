@@ -68,6 +68,58 @@ final class GaugeTest extends TestCase
         $this->assertSame($this->gauge(140)->trackPath(), $this->gauge(140)->progressPath());
     }
 
+    private function half(?float $value): Gauge
+    {
+        $gauge = $this->gauge($value);
+        $gauge->shape = Gauge::SHAPE_HALF;
+
+        return $gauge;
+    }
+
+    public function testHalfShapeIsASemicircleFromLeftToRight(): void
+    {
+        $gauge = $this->half(50);
+
+        $this->assertTrue($gauge->isHalf());
+        $this->assertSame('M 10.00 50.00 A 40.00 40.00 0 0 1 90.00 50.00', $gauge->trackPath(), 'de gauche à droite, petit arc');
+        $this->assertSame('M 10.00 50.00 A 40.00 40.00 0 0 1 50.00 10.00', $gauge->progressPath(), '50 % = jusqu\'au sommet');
+        $this->assertSame($gauge->trackPath(), $this->half(100)->progressPath(), 'valeur pleine = arc complet');
+        $this->assertSame($gauge->trackPath(), $this->half(180)->progressPath(), 'au-delà du max aussi');
+        $this->assertNull($this->half(0)->progressPath());
+        $this->assertNull($this->half(null)->progressPath());
+    }
+
+    public function testShapesHaveTheirOwnFrameAndTextPosition(): void
+    {
+        $arc = $this->gauge(10);
+        $half = $this->half(10);
+
+        $this->assertFalse($arc->isHalf());
+        $this->assertSame('4 4 92 84', $arc->viewBox());
+        $this->assertSame('4 4 92 52', $half->viewBox());
+        $this->assertSame(57.0, $arc->textY());
+        $this->assertSame(46.0, $half->textY());
+        $this->assertGreaterThan($half->fontSize() - 1, $arc->fontSize());
+    }
+
+    /** @return iterable<string, array{?float, ?string}> */
+    public static function tones(): iterable
+    {
+        yield 'sans valeur' => [null, null];
+        yield '0 %' => [0.0, 'red'];
+        yield 'juste sous 80 %' => [79.9, 'red'];
+        yield '80 % : ambre' => [80.0, 'amber'];
+        yield 'juste sous 100 %' => [99.9, 'amber'];
+        yield '100 % : vert' => [100.0, 'green'];
+        yield 'au-delà' => [130.0, 'green'];
+    }
+
+    #[DataProvider('tones')]
+    public function testToneFollowsTheDashboardThresholds(?float $value, ?string $expected): void
+    {
+        $this->assertSame($expected, $this->gauge($value)->tone());
+    }
+
     public function testNoProgressArcWithoutValue(): void
     {
         $this->assertNull($this->gauge(0)->progressPath());

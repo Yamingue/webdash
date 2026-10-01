@@ -28,7 +28,7 @@ final class DashboardControllerTest extends AppWebTestCase
         $this->assertGreaterThan(0, $client->getCrawler()->filter('svg')->count());
     }
 
-    public function testDashboardShowsIndicatorsChartAndWeekPicker(): void
+    public function testDashboardShowsGlobalIndicatorsAndWeekPicker(): void
     {
         $client = $this->clientFor('admin@example.com');
         $container = static::getContainer();
@@ -42,20 +42,19 @@ final class DashboardControllerTest extends AppWebTestCase
         $crawler = $client->request('GET', '/?week=2026-09-30'); // un mercredi : ramené au lundi 28
         $this->assertResponseIsSuccessful();
         $this->assertSame('2026-09-28', $crawler->filter('input[name="week"]')->attr('value'));
-        $this->assertSelectorTextContains('main', 'Atteinte globale');
+        $this->assertSelectorTextContains('main', 'Score global pondéré');
         $this->assertSelectorTextContains('main', '100 %');
         $this->assertSelectorTextContains('main', 'Score SCAT1');
         $this->assertSelectorTextContains('main', 'Aucun KPI renseigné pour le moment'); // Finance : aucune saisie soumise
-        $this->assertSelectorExists('canvas');
         $this->assertSelectorExists('[role="progressbar"]');
+        $this->assertSelectorNotExists('canvas', 'plus de courbe d’évolution sur le tableau de bord');
         // le score global est une jauge : valeur accessible + échelle annoncée
-        $this->assertSelectorExists('svg[role="img"][aria-label="Atteinte globale : 100 %"]');
-        // une jauge de score par domaine : Réseau à 100 %, Finance sans donnée
-        $this->assertSelectorExists('svg[role="img"][aria-label="Réseau & ARCEP : 100 %"]');
-        $this->assertSelectorExists('svg[role="img"][aria-label="Finance : aucune donnée"]');
-        $this->assertSelectorTextContains('#domain-scores-title', 'Score par domaine');
-        $this->assertSelectorExists('section[aria-labelledby="domain-scores-title"] a[href="/d/reseau-arcep"]');
-        $this->assertSelectorExists('svg[role="img"] path.stroke-indigo-500', 'arc de progression');
+        $this->assertSelectorExists('svg[role="img"][aria-label="Score global pondéré : 100 %"]');
+        // le score par domaine n'est plus sur le tableau de bord : une seule jauge (l'atteinte globale)
+        $this->assertCount(1, $crawler->filter('svg[role="img"]'));
+        $this->assertSelectorNotExists('#domain-scores-title');
+        $this->assertSelectorNotExists('svg[role="img"][aria-label^="Réseau"]');
+        $this->assertSelectorExists('svg[role="img"] path.stroke-emerald-500', 'arc de progression, coloré selon le seuil (100 % : vert)');
         $this->assertSelectorExists('svg[role="img"] text');
         $this->assertSelectorTextContains('main', '1 à valider');
     }
@@ -123,6 +122,120 @@ final class DashboardControllerTest extends AppWebTestCase
         $this->assertStringContainsString('Aucun KPI renseigné pour le moment', $first->filter('[role="tabpanel"]')->eq(0)->text());
         $this->assertStringContainsString('Aucune semaine renseignée pour le moment', $first->filter('[role="tabpanel"]')->eq(1)->text());
         $this->assertSame('Tous (0)', trim($first->filter('[role="tab"]')->eq(1)->text()));
+    }
+
+    /** Réseau : SCAT1 (objectif 95) à 100 % (vert), R1 à 40 % (rouge), A1 à 90 % (ambre), M1 non saisi ; Finance : SCATX non saisi. */
+    private function seedStatuses(): void
+    {
+        $container = static::getContainer();
+        $em = $container->get(\Doctrine\ORM\EntityManagerInterface::class);
+        $reseau = $container->get(\App\Repository\DomainRepository::class)->findOneBy(['slug' => 'reseau-arcep']);
+
+        $kpis = ['SCAT1' => $reseau->getKpis()->first()];
+        foreach (['R1' => 1, 'A1' => 2, 'M1' => 3] as $code => $position) {
+            $kpi = (new \App\Entity\Kpi())->setCode($code)->setName($code)->setDefaultTarget(100)->setPosition($position);
+            $reseau->addKpi($kpi);
+            $em->persist($kpi);
+            $kpis[$code] = $kpi;
+        }
+        $em->flush();
+
+        foreach (['SCAT1' => 95, 'R1' => 40, 'A1' => 90] as $code => $score) {
+            $evaluation = (new \App\Entity\Evaluation($kpis[$code], new \DateTimeImmutable('2026-09-28')))->setScore($score);
+            $evaluation->submit();
+            $em->persist($evaluation);
+        }
+        $em->flush();
+    }
+
+    public function testStatusCardsCountEveryKpiByColour(): void
+    {
+        $client = $this->clientFor('admin@example.com');
+        $this->seedStatuses();
+
+        $crawler = $client->request('GET', '/?week=2026-09-28');
+        $this->assertResponseIsSuccessful();
+
+        $cards = $crawler->filter('[data-status-card]');
+        $this->assertCount(4, $cards, 'rouges, ambre, verts, non renseignés');
+
+        $expected = [
+            ['red', '1', 'KPI rouges', 'Action urgente', 'bg-red-100'],
+            ['amber', '1', 'KPI ambre', 'Surveillance', 'bg-amber-100'],
+            ['green', '1', 'KPI verts', 'Objectif atteint', 'bg-green-100'],
+            ['missing', '2', 'Non renseignés', 'Données manquantes', 'bg-white'],
+        ];
+        foreach ($expected as $i => [$status, $count, $label, $subtitle, $background]) {
+            $card = $cards->eq($i);
+            $text = preg_replace('/\s+/', ' ', $card->text());
+            $this->assertSame($status, $card->attr('data-status-card'));
+            $this->assertStringStartsWith($count.' ', $text, $label);
+            $this->assertStringContainsString($label, $text);
+            $this->assertStringContainsString($subtitle, $text);
+            $this->assertStringContainsString($background, $card->attr('class'), 'fond teinté selon le statut');
+            $this->assertStringContainsString('border-t-4', $card->attr('class'), 'filet supérieur');
+        }
+
+        // répartition par domaine dans la carte « Non renseignés »
+        $this->assertStringContainsString('Réseau & ARCEP 1 · Finance 1', preg_replace('/\s+/', ' ', $cards->eq(3)->text()));
+
+        // les anciens compteurs ont disparu
+        $this->assertSelectorTextNotContains('main', 'KPI évalués');
+        $this->assertSelectorTextNotContains('main', 'KPI sans saisie');
+    }
+
+    public function testGlobalScoreIsAToneHalfGaugeLikeTheStatusRow(): void
+    {
+        $client = $this->clientFor('admin@example.com');
+        $this->seedStatuses();
+
+        $crawler = $client->request('GET', '/?week=2026-09-28');
+
+        // Réseau seul a des données : (100 + 40 + 90) ÷ 3 = 76,7 → sous 80 % : rouge
+        $this->assertCount(1, $crawler->filter('svg[role="img"][aria-label="Score global pondéré : 76.7 %"]'));
+        $this->assertSelectorExists('svg[aria-label^="Score global pondéré"] path.stroke-rose-500', 'arc coloré selon le seuil');
+        $this->assertSame('4 4 92 52', $crawler->filter('svg[aria-label^="Score global pondéré"]')->attr('viewBox'), 'demi-cercle');
+        $this->assertSelectorTextContains('main', 'Voir le calcul');
+    }
+
+    public function testNoKpiDetailTableAnymore(): void
+    {
+        $client = $this->clientFor('admin@example.com');
+        $this->seedStatuses();
+
+        $client->request('GET', '/?week=2026-09-28');
+
+        $this->assertSelectorTextNotContains('main', 'Détail des KPI');
+        $this->assertSelectorNotExists('[data-controller="status-filter"]');
+        $this->assertSelectorNotExists('main button[data-status-card]', 'les cartes ne sont plus des filtres');
+    }
+
+    public function testStatusCardsStayInTheUsersScope(): void
+    {
+        $client = $this->clientFor('manager@example.com'); // responsable de Réseau seulement
+        $this->seedStatuses();
+
+        $crawler = $client->request('GET', '/?week=2026-09-28');
+
+        $cards = $crawler->filter('[data-status-card]');
+        $sum = array_sum($cards->each(static fn ($c) => (int) preg_replace('/\D.*$/s', '', trim($c->text()))));
+        $this->assertSame(4, $sum, 'les 4 KPI de Réseau, pas ceux de Finance');
+        $this->assertStringNotContainsString('Finance', $cards->eq(3)->text());
+    }
+
+    public function testStatusRowAdaptsToTheSelectedWeek(): void
+    {
+        $client = $this->clientFor('admin@example.com');
+        $this->seedStatuses();
+
+        $crawler = $client->request('GET', '/?week=2020-01-06'); // semaine sans aucune saisie
+
+        $cards = $crawler->filter('[data-status-card]');
+        $this->assertSame(
+            ['0', '0', '0', '5'],
+            array_map(static fn ($t) => preg_replace('/\D.*$/s', '', trim($t)), $cards->each(static fn ($c) => $c->text())),
+            'tous les KPI sont non renseignés',
+        );
     }
 
     public function testUserWithoutDomainSeesEmptyState(): void
